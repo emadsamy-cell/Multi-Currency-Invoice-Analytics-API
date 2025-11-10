@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import engine, get_db
 from app import models
 from app.config import settings
-from app.routers import customers
+from app.routers import customers, invoices
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
@@ -25,6 +25,7 @@ app.add_middleware(
 
 # Register routers
 app.include_router(customers.router)
+app.include_router(invoices.router)
 
 @app.get("/")
 def root():

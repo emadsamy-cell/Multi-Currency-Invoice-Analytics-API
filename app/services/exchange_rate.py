@@ -1,11 +1,4 @@
-"""
-Exchange Rate Service
-
-Provides functionality to fetch exchange rates from external API.
-"""
-
 import httpx
-from typing import Optional
 from fastapi import HTTPException, status
 
 from app.config import settings
@@ -22,7 +15,7 @@ class ExchangeRateService:
     async def get_exchange_rate(
         self, 
         from_currency: str, 
-        to_currency: Optional[str] = None
+        to_currency: str | None = None
     ) -> float:
         """
         Get exchange rate from given currency to target currency.
@@ -61,8 +54,8 @@ class ExchangeRateService:
                         )
                 else:
                     raise HTTPException(
-                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                        detail="Exchange rate API unavailable"
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Unavailable exchange rate data"
                     )
                     
         except httpx.TimeoutException:
