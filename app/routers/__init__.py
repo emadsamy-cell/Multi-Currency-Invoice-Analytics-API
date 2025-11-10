@@ -1,4 +1,4 @@
-from app.routers import customers
+from app.routers import customers, invoices
 
-__all__ = ["customers"]
+__all__ = ["customers", "invoices"]
 
