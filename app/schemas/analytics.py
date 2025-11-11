@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, date
 
 
 class AnalyticsRequest(BaseModel):
@@ -16,13 +16,13 @@ class AnalyticsRequest(BaseModel):
         gt=0,
         description="Filter analytics by specific customer ID"
     )
-    start_date: Optional[datetime] = Field(
+    start_date: Optional[date] = Field(
         None,
-        description="Start date for filtering invoices (inclusive)"
+        description="Start date for filtering invoices (inclusive). Format: YYYY-MM-DD (e.g., 2024-01-01)"
     )
-    end_date: Optional[datetime] = Field(
+    end_date: Optional[date] = Field(
         None,
-        description="End date for filtering invoices (inclusive)"
+        description="End date for filtering invoices (inclusive). Format: YYYY-MM-DD (e.g., 2024-12-31)"
     )
 
 
@@ -31,8 +31,8 @@ class TotalRevenueResponse(BaseModel):
     total_revenue: float = Field(..., description="Total revenue in the target currency")
     currency: str = Field(..., description="Currency code of the total revenue")
     invoice_count: int = Field(..., description="Number of invoices included in calculation")
-    start_date: Optional[datetime] = Field(None, description="Start date filter applied")
-    end_date: Optional[datetime] = Field(None, description="End date filter applied")
+    start_date: Optional[date] = Field(None, description="Start date filter applied")
+    end_date: Optional[date] = Field(None, description="End date filter applied")
     customer_id: Optional[int] = Field(None, description="Customer ID filter applied")
 
 
@@ -41,7 +41,7 @@ class AverageInvoiceResponse(BaseModel):
     average_invoice_size: float = Field(..., description="Average invoice size in the target currency")
     currency: str = Field(..., description="Currency code of the average")
     invoice_count: int = Field(..., description="Number of invoices included in calculation")
-    start_date: Optional[datetime] = Field(None, description="Start date filter applied")
-    end_date: Optional[datetime] = Field(None, description="End date filter applied")
+    start_date: Optional[date] = Field(None, description="Start date filter applied")
+    end_date: Optional[date] = Field(None, description="End date filter applied")
     customer_id: Optional[int] = Field(None, description="Customer ID filter applied")
 

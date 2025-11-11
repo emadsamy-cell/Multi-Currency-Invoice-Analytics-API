@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, date
 
 from app.database import get_db
 from app.models import Invoice
@@ -43,8 +43,8 @@ async def convert_invoice_to_currency(
 def build_invoice_query(
     db: Session,
     customer_id: Optional[int] = None,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None
 ):
     """
     Build a query for invoices with optional filters.
@@ -52,8 +52,8 @@ def build_invoice_query(
     Args:
         db: Database session
         customer_id: Optional customer ID filter
-        start_date: Optional start date filter
-        end_date: Optional end date filter
+        start_date: Optional start date filter (inclusive, from start of day)
+        end_date: Optional end date filter (inclusive, until end of day)
     
     Returns:
         SQLAlchemy query object
@@ -64,17 +64,21 @@ def build_invoice_query(
         query = query.filter(Invoice.customer_id == customer_id)
     
     if start_date:
-        query = query.filter(Invoice.created_at >= start_date)
+        # Start from beginning of the day (00:00:00)
+        start_datetime = datetime.combine(start_date, datetime.min.time())
+        query = query.filter(Invoice.created_at >= start_datetime)
     
     if end_date:
-        query = query.filter(Invoice.created_at <= end_date)
+        # Include entire day until end of day (23:59:59.999999)
+        end_datetime = datetime.combine(end_date, datetime.max.time())
+        query = query.filter(Invoice.created_at <= end_datetime)
     
     return query
 
 
-@router.post("/total-revenue", response_model=TotalRevenueResponse)
+@router.get("/total-revenue", response_model=TotalRevenueResponse)
 async def get_total_revenue(
-    analytics_request: AnalyticsRequest,
+    analytics_request: AnalyticsRequest = Depends(),
     db: Session = Depends(get_db)
 ) -> TotalRevenueResponse:
     """
@@ -138,9 +142,9 @@ async def get_total_revenue(
     )
 
 
-@router.post("/average-invoice", response_model=AverageInvoiceResponse)
+@router.get("/average-invoice", response_model=AverageInvoiceResponse)
 async def get_average_invoice_size(
-    analytics_request: AnalyticsRequest,
+    analytics_request: AnalyticsRequest = Depends(),
     db: Session = Depends(get_db)
 ) -> AverageInvoiceResponse:
     """
