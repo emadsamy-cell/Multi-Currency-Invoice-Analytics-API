@@ -14,6 +14,13 @@ from app.schemas.invoice import (
     InvoiceResponse,
 )
 
+# Analytics schemas
+from app.schemas.analytics import (
+    AnalyticsRequest,
+    TotalRevenueResponse,
+    AverageInvoiceResponse,
+)
+
 __all__ = [
     # Customer schemas
     "CustomerBase",
@@ -25,5 +32,9 @@ __all__ = [
     "InvoiceCreate",
     "InvoiceUpdate",
     "InvoiceResponse",
+    # Analytics schemas
+    "AnalyticsRequest",
+    "TotalRevenueResponse",
+    "AverageInvoiceResponse",
 ]
 
