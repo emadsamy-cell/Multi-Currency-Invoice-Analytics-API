@@ -36,3 +36,19 @@ class Invoice(Base):
     # Relationships
     customer = relationship("Customer", back_populates="invoices")
 
+
+class ExchangeRateCache(Base):
+    """Exchange rate cache model - stores rates for 1 hour"""
+    __tablename__ = "exchange_rate_cache"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    from_currency = Column(String(3), nullable=False, index=True)
+    to_currency = Column(String(3), nullable=False, index=True)
+    rate = Column(Float, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    
+    # Composite index for faster lookups
+    __table_args__ = (
+        # Create index on (from_currency, to_currency) pair
+        {'sqlite_autoincrement': True}
+    )
