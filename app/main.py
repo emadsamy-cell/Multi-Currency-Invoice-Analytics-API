@@ -1,10 +1,12 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
+from strawberry.fastapi import GraphQLRouter
 from app.database import engine, get_db
 from app import models
 from app.config import settings
 from app.routers import customers, invoices, analytics
+from app.graphql.schema import schema
+from app.graphql.context import get_graphql_context
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
@@ -23,16 +25,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Register routers
 app.include_router(customers.router)
 app.include_router(invoices.router)
 app.include_router(analytics.router)
+
+# Add GraphQL Router
+graphql_app = GraphQLRouter(
+    schema,
+    context_getter=get_graphql_context
+)
+app.include_router(graphql_app, prefix="/graphql", tags=["GraphQL"])
 
 @app.get("/")
 def root():
     return {
         "message": f"Welcome to {settings.app_name}",
         "docs": "/docs",
+        "graphql": "/graphql",
     }
 
 @app.get("/health")
