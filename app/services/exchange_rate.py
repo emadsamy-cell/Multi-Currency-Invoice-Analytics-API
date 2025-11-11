@@ -1,11 +1,17 @@
 import httpx
+from datetime import datetime, timedelta
+from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
 from app.config import settings
+from app.models import ExchangeRateCache
+from app.database import get_db
 
 
 class ExchangeRateService:
-    """Service for fetching and managing exchange rates."""
+    """Service for fetching and managing exchange rates with caching."""
+    
+    CACHE_DURATION_HOURS = 1  # Cache exchange rates for 1 hour
     
     def __init__(self):
         self.api_url = settings.exchange_rate_api_url
@@ -70,6 +76,85 @@ class ExchangeRateService:
                 detail=f"Failed to connect to exchange rate API: {str(e)}"
             )
     
+    def _get_cached_rate(self, from_currency: str, to_currency: str) -> float | None:
+        """
+        Args:
+            from_currency: Source currency
+            to_currency: Target currency
+        
+        Returns:
+            float | None: Cached rate if found and fresh, None otherwise
+        """
+        db = next(get_db())
+        try:
+            from_currency = from_currency.upper()
+            to_currency = to_currency.upper()
+            
+            # Calculate cutoff time (1 hour ago)
+            cutoff_time = datetime.now() - timedelta(hours=self.CACHE_DURATION_HOURS)
+            
+            # Check direct rate (from -> to)
+            cached = db.query(ExchangeRateCache).filter(
+                ExchangeRateCache.from_currency == from_currency,
+                ExchangeRateCache.to_currency == to_currency,
+                ExchangeRateCache.created_at >= cutoff_time
+            ).order_by(ExchangeRateCache.created_at.desc()).first()
+            
+            if cached:
+                return cached.rate
+            
+            # Check inverse rate (to -> from) and invert it
+            cached_inverse = db.query(ExchangeRateCache).filter(
+                ExchangeRateCache.from_currency == to_currency,
+                ExchangeRateCache.to_currency == from_currency,
+                ExchangeRateCache.created_at >= cutoff_time
+            ).order_by(ExchangeRateCache.created_at.desc()).first()
+            
+            if cached_inverse:
+                return 1 / cached_inverse.rate
+            
+            return None
+        finally:
+            db.close()
+    
+    def _cache_rate(self, from_currency: str, to_currency: str, rate: float):
+        """
+        Store or update exchange rate in cache.
+        Updates existing rate if found, otherwise creates new entry.
+        
+        Args:
+            from_currency: Source currency
+            to_currency: Target currency
+            rate: Exchange rate to cache
+        """
+        db = next(get_db())
+        try:
+            from_currency = from_currency.upper()
+            to_currency = to_currency.upper()
+            
+            # Check if rate already exists
+            existing = db.query(ExchangeRateCache).filter(
+                ExchangeRateCache.from_currency == from_currency,
+                ExchangeRateCache.to_currency == to_currency
+            ).first()
+            
+            if existing:
+                # Update existing rate
+                existing.rate = rate
+                existing.created_at = datetime.now()
+            else:
+                # Create new cache entry
+                cache_entry = ExchangeRateCache(
+                    from_currency=from_currency,
+                    to_currency=to_currency,
+                    rate=rate
+                )
+                db.add(cache_entry)
+            
+            db.commit()
+        finally:
+            db.close()
+    
     async def get_exchange_rate(
         self, 
         from_currency: str, 
@@ -93,6 +178,11 @@ class ExchangeRateService:
         if from_currency.upper() == to_currency.upper():
             return 1.0
         
+        # Check cache first
+        cached_rate = self._get_cached_rate(from_currency, to_currency)
+        if cached_rate is not None:
+            return cached_rate
+        
         # Validate both currencies before making the exchange rate request
         await self.validate_currency(from_currency)
         await self.validate_currency(to_currency)
@@ -108,7 +198,12 @@ class ExchangeRateService:
                     data = response.json()
                     
                     if data.get("result") == "success":
-                        return data.get("conversion_rate")
+                        rate = data.get("conversion_rate")
+                        
+                        # Cache the rate
+                        self._cache_rate(from_currency, to_currency, rate)
+                        
+                        return rate
                     else:
                         raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
@@ -135,10 +230,16 @@ class ExchangeRateService:
         return await self.get_exchange_rate(from_currency, self.default_currency)
 
 
-# Singleton instance
-exchange_rate_service = ExchangeRateService()
-
-
 async def get_exchange_rate_to_default(currency: str) -> float:
-    return await exchange_rate_service.get_rate_to_default(currency)
+    """
+    Get exchange rate to default currency with caching support.
+    
+    Args:
+        currency: Currency to convert from
+    
+    Returns:
+        float: Exchange rate
+    """
+    service = ExchangeRateService()
+    return await service.get_rate_to_default(currency)
 
