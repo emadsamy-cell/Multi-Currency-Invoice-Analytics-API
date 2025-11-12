@@ -19,7 +19,6 @@ A powerful FastAPI-based REST and GraphQL API for managing customers, invoices, 
     - [GraphQL Playground](#graphql-playground)
   - [Exchange Rate Caching](#exchange-rate-caching)
   - [Running Tests](#running-tests)
-  - [API Usage Examples](#api-usage-examples)
   - [Troubleshooting](#troubleshooting)
 
 ## Features
@@ -28,36 +27,12 @@ A powerful FastAPI-based REST and GraphQL API for managing customers, invoices, 
 - **Invoice Management** - Handle invoices in multiple currencies with automatic conversion
 - **Analytics** - Calculate total revenue and average invoice size across currencies
 - **Multi-Currency Support** - Automatic exchange rate conversion to a default currency
-- **Exchange Rate Caching** - Database-level caching for improved performance (1-hour cache)
 - **Dual API Support** - Both REST and GraphQL endpoints available
-- **Soft Delete** - Non-destructive deletion of records
-- **Comprehensive Testing** - Full test suite with 27 unit tests
+
 
 ## Database Schema
+<img width="1562" height="1156" alt="db-schema" src="https://github.com/user-attachments/assets/4c30ae21-6635-4013-8c45-bd18159042cf" />
 
-The database schema includes three main tables optimized for performance:
-
-**Tables:**
-
-- **customers** - Customer information with soft delete support
-- **invoices** - Invoice records with multi-currency support and exchange rates
-- **exchange_rate_cache** - Cached exchange rates (1-hour TTL) for performance optimization
-
-### Schema Details
-
-**customers**
-
-- `id` (Primary Key), `name`, `created_at`, `updated_at`, `deleted_at`
-
-**invoices**
-
-- `id` (Primary Key), `customer_id` (Foreign Key), `amount`, `currency`, `default_currency`
-- `amount_in_default_currency`, `exchange_rate`, `created_at`, `updated_at`, `deleted_at`
-
-**exchange_rate_cache**
-
-- `id` (Primary Key), `from_currency`, `to_currency`, `rate`, `created_at`
-- Indexed on `(from_currency, to_currency)` for fast lookups
 
 ## Getting Started
 
@@ -103,28 +78,13 @@ Before running the application, ensure you have the following installed:
    APP_NAME="Multi-Currency Invoice Analytics API"
    APP_VERSION="1.0.0"
    ```
-
-3. **Build and start the application:**
-   ```bash
-   docker-compose up --build
-   ```
-
 ## Running the Application with Docker
 
 To run the entire system using Docker, ensure you have Docker and Docker Compose installed, then execute:
 
 ```bash
 # Start all services
-docker-compose up --build
-
-# Run in detached mode (background)
-docker-compose up -d --build
-
-# Stop the application
-docker-compose down
-
-# Stop and remove volumes (reset database)
-docker-compose down -v
+docker-compose up
 ```
 
 The application will be available at:
@@ -137,86 +97,20 @@ The application will be available at:
 
 ### REST API Endpoints
 
-The REST API is fully documented with interactive Swagger UI.
+The REST API is fully documented with an interactive Swagger UI.
 
 **🔗 Live Documentation:** http://ec2-18-227-79-172.us-east-2.compute.amazonaws.com:8000/docs
 
-**Available Endpoints:**
-
-**Customers**
-
-- `POST /customers/` - Create a new customer
-- `GET /customers/` - List all customers (supports pagination)
-- `PUT /customers/{customer_id}` - Update customer details
-- `DELETE /customers/{customer_id}` - Soft delete a customer
-
-**Invoices**
-
-- `POST /invoices/` - Create a new invoice with automatic currency conversion
-- `GET /invoices/` - List all invoices (supports filtering and pagination)
-- `GET /invoices/{invoice_id}` - Get specific invoice details
-- `PUT /invoices/{invoice_id}` - Update invoice details
-- `DELETE /invoices/{invoice_id}` - Soft delete an invoice
-
-**Analytics**
-
-- `GET /analytics/total-revenue` - Calculate total revenue across all invoices
-  - Query params: `target_currency`, `customer_id`, `start_date`, `end_date`
-- `GET /analytics/average-invoice` - Calculate average invoice size
-  - Query params: `target_currency`, `customer_id`, `start_date`, `end_date`
-
-**Utility**
-
-- `GET /` - API welcome message with links
-- `GET /health` - Health check endpoint
-
 ### GraphQL Playground
 
-The GraphQL API provides flexible querying and mutations.
+The GraphQL API provides flexible querying.
 
 **🔗 Live Playground:** http://ec2-18-227-79-172.us-east-2.compute.amazonaws.com:8000/graphql
-
-**Example Queries:**
-
-```graphql
-# Get all customers
-customers {
-  id
-  name
-  createdAt
-}
-
-# Get all invoices with customer details
-invoices {
-  id
-  amount
-  currency
-  customer {
-    name
-  }
-}
-```
-
-**Example Mutations:**
-
-```graphql
-# Create customer
-createCustomer(name: "Customer Name") {
-  id
-  name
-}
-
-# Create invoice
-createInvoice(customerId: 1, amount: 1000.00, currency: "USD") {
-  id
-  amount
-  exchangeRate
-}
-```
 
 ## Exchange Rate Caching
 
 The application implements an intelligent database-level caching system for exchange rates to improve performance and reduce external API calls.
+
 
 ### How It Works
 
@@ -235,19 +129,6 @@ The application implements an intelligent database-level caching system for exch
    - If EUR→USD is cached, USD→EUR is calculated as 1/rate
    - Reduces API calls by 50% for bidirectional conversions
 
-### Performance Benefits
-
-- **Faster Response Times** - Cached rates return in <10ms vs 200-500ms for API calls
-- **Reduced API Costs** - Fewer external API requests
-- **Better Reliability** - Works even if external API is temporarily unavailable
-- **Scalability** - Handles high request volumes efficiently
-
-**Configuration:**
-
-- Cache Duration: 1 hour (configurable in `app/services/exchange_rate.py`)
-- Storage: PostgreSQL `exchange_rate_cache` table
-- Automatic Updates: Expired rates are automatically refreshed
-
 ## Running Tests
 
 The project includes a comprehensive test suite covering all main endpoints.
@@ -260,50 +141,6 @@ docker-compose run --rm api pytest tests/ -v
 docker-compose run --rm api pytest tests/test_customers.py -v
 docker-compose run --rm api pytest tests/test_invoices.py -v
 docker-compose run --rm api pytest tests/test_analytics.py -v
-```
-
-**Test Coverage:**
-
-- 27 tests total
-- Customer endpoints (7 tests)
-- Invoice endpoints (13 tests)
-- Analytics endpoints (7 tests)
-
-All tests use an in-memory SQLite database, so no external database setup is required.
-
-## API Usage Examples
-
-### Create a Customer
-
-```bash
-curl -X POST "http://localhost:8000/customers/" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Acme Corporation"}'
-```
-
-### Create an Invoice
-
-```bash
-curl -X POST "http://localhost:8000/invoices/" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customer_id": 1,
-    "amount": 1000.00,
-    "currency": "EUR"
-  }'
-```
-
-### Get Total Revenue
-
-```bash
-# Total revenue in USD
-curl "http://localhost:8000/analytics/total-revenue"
-
-# Total revenue in EUR for specific customer
-curl "http://localhost:8000/analytics/total-revenue?target_currency=EUR&customer_id=1"
-
-# Total revenue for date range
-curl "http://localhost:8000/analytics/total-revenue?start_date=2024-01-01&end_date=2024-12-31"
 ```
 
 ## Troubleshooting
@@ -319,17 +156,6 @@ docker-compose logs db
 
 # Restart services
 docker-compose restart
-```
-
-### API Not Responding
-
-```bash
-# Check API logs
-docker-compose logs api
-
-# Rebuild containers
-docker-compose down
-docker-compose up --build
 ```
 
 ### Exchange Rate API Errors
