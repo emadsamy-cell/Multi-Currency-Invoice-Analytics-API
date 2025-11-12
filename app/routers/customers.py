@@ -4,7 +4,7 @@ from sqlalchemy.sql import func
 from typing import List
 
 from app.database import get_db
-from app.models import Customer
+from app.models import Customer, Invoice
 from app.schemas import CustomerCreate, CustomerUpdate, CustomerResponse
 
 router = APIRouter(prefix="/customers", tags=["Customers"])
@@ -68,7 +68,7 @@ def delete_customer(
     customer_id: int,
     db: Session = Depends(get_db)
 ):
-    """Delete a customer by ID."""
+    """Delete a customer by ID and cascade soft delete all related invoices."""
     db_customer = db.query(Customer).filter(Customer.id == customer_id).first()
     
     if not db_customer:
@@ -83,7 +83,19 @@ def delete_customer(
             detail=f"Customer with id {customer_id} already deleted"
         )
 
-    db_customer.deleted_at = func.now()
+    # Soft delete the customer
+    deletion_time = func.now()
+    db_customer.deleted_at = deletion_time
+    
+    # Cascade soft delete all related invoices
+    db.query(Invoice).filter(
+        Invoice.customer_id == customer_id,
+        Invoice.deleted_at.is_(None)
+    ).update(
+        {Invoice.deleted_at: deletion_time},
+        synchronize_session=False
+    )
+    
     db.commit()
     
     return None
